@@ -1,0 +1,284 @@
+---
+title: "nf20917_EMATM0061_A"
+author: "Pantelis Zoumpoulidis"
+date: "18/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+  knitr::opts_chunk$set(echo = TRUE)
+```
+<style>
+body {
+text-align: justify}
+</style>
+## Section A: Data Wrangling
+
+
+# Task 1.
+
+<br />
+
+Firstly, we are going to download a dataset for Section A. Directing to the link of [CalCOFI Hydrographic database](https://www.calcofi.org/ccdata.html), we click on the "CSV Files" to download the database we are going to use. We unzip the downloaded file which contains a folder with two .csv files. We will use the bottle .csv file (xxxxxx-xxxxxx_Bottle.csv, where x are numbers). We cut and paste the .csv file into our RMD working space. We check the structure of the .csv file and we see that the first row is the row with the names of the columns. Next, we load the .csv file into an R data frame called "calcofi_data_original".
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  calcofi_data_original <- read.csv("/Users/zoumpp/Documents/Data Science MSc/Statistical Computing and Empirical Methods (SCEM) TB1/Assesment/Section A Data Wrangling/194903-201911_Bottle.csv", header = TRUE) #loading .csv file from local computer path to bottleData. header = TRUE because the first row is the row with the names of the columns 
+  
+```
+
+<br />
+<br />
+
+The data frame consists of `r nrow(calcofi_data_original) # return number of rows` rows and `r ncol(calcofi_data_original) # return number of columns` columns.
+
+<br />
+
+# Task 2.
+
+<br />
+
+In the beginning, we take a look at the column descriptions in the following [link](https://new.data.calcofi.org/index.php/database/calcofi-database/bottle-field-descriptions). Then we are going to create a data frame called "calcofi_data" which is a subset of "calcofi_data_original" data frame with the same number of rows, but only six columns:
+
+1. Depth_ID: The Depth_ID
+2. depth: The depth of the cast in meters
+3. temperature: The temperature measured in degrees centigrade
+4. salinity: The salinity measured on the Practical Salinity Scale
+5. oxygen: The oxygen level in micromoles per kilogram of seawater
+6. chlorophyll: The acetone extracted chlorophyll-a measured fluorometrically
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+   
+  library(dplyr) # importing library
+  library(tidyverse) # importing library
+
+  calcofi_data <- calcofi_data_original %>% # from calcofi_data_original
+    select(Depth_ID, Depthm, T_degC, Salnty, Oxy_µmol.Kg, ChlorA) %>% # select the right columns after reading the database description
+    rename(depth = Depthm, temperature = T_degC, salinity = Salnty, oxygen = Oxy_µmol.Kg, chlorophyll = ChlorA) # renaming columns to more understandable names
+  
+```
+
+<br />
+<br />
+
+The first five columns of our new data set are the following:
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+
+  calcofi_data %>% head(5) # display the first 5 rows using the head function`
+
+```
+
+<br />
+<br />
+
+# Task 3.
+
+<br />
+
+Secondly, we are going to create two functions:
+
+1. get_year: returns the year from the Depth_ID
+2. get_cast_type: returns the cast type from the Depth_ID
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  #Depth_id form: [Century]-[YY][MM][ShipCode]- [CastType][Julian Day]-[CastTime]-[Line][Sta][Depth][Bottle]-[Rec_Ind]
+
+  get_year <- function(depth_id) { # the function will take a value from Depth_id
+    year <- "" # the variable which year will be saved
+    boolean = TRUE # boolean to check when century ends (1 or 2 numbers)
+    i <- 1 # counter for indexing characters in depth_id
+    while(boolean) { # while the character is not - (separates century with year)
+      
+      character <- substr(depth_id, i, i) # taking 1 character at a time
+      if(character != "-") # if character != - then means we have not taken the whole century yet
+        year <- paste(year, character, sep = "") # add century to the year variable. sep = "" is used for not adding space when merging the strings
+      else # if character == - then means we have already taken the whole century
+        boolean = FALSE # we found -. so the next 2 characters are the last 2 of the year
+      
+      i <- i + 1 # next character
+    }
+    
+    year <- paste(year, substr(depth_id, i, i + 1), sep = "") # the i has moved 1 character after -. the year is 2 characters so we need 2 more characters. sep = "" is used for not adding space when merging the strings
+    
+    return(as.integer(year)) # returns the year
+    
+  }
+  
+  get_cast_type <- function(depth_id) { # the function will take a value from Depth_id
+    castType <- "" # the variable which cast type will be saved
+    boolean = TRUE # boolean to check when cast type ends
+    i <- 1 # counter for indexing characters in depth_id
+    k <- 0 # number of "-" read. checks if its cast type (after 2 "-" it's cast type)
+    while(boolean) { # while the character is not - (separates cast type with cast time)
+      
+      character <- substr(depth_id, i, i) # taking 1 character at a time
+      if(k == 2) { # means it's cast type (after 2 consecutive "-")
+
+        while(TRUE) { # true because eventually we will return cast type. while we don't find "-" means we read cast type
+          castType <- paste(castType, character, sep = "") # have already saved in character the first character of cast type
+          i <- i + 1
+          character <- substr(depth_id, i, i) # taking 1 character at a time
+          if(character == "-") # this means we ended reading cast type. 3rd "-"
+            return(castType) # returns cast type
+        }
+      }
+      else {
+        if(character == "-")
+          k <- k + 1 # increasing the number of "-"
+      }
+      i <- i + 1 # next character
+    }
+    
+  }
+  
+```
+
+<br />
+<br />
+
+Next, we are going to create two more columns, one with the year and one with the cast type, and we are going to remove the Depth_id column. Thus, our data frame will consist of 7 columns rather than 6 now, which are the following:
+
+1. depth: The depth of the cast in meters
+2. temperature: The temperature measured in degrees centigrade
+3. salinity: The salinity measured on the Practical Salinity Scale
+4. oxygen: The oxygen level in micromoles per kilogram of seawater
+5. chlorophyll: The acetone extracted chlorophyll-a measured fluorometrically
+6. year: the year
+7. cast_type: the cast type
+
+<br />
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  calcofi_data <- calcofi_data %>% # from calcofi data
+    mutate(year = map_int(Depth_ID, get_year)) %>% # create column year using map function in Depth_id column with get_year function
+    mutate(cast_type = map_chr(Depth_ID, get_cast_type)) %>% # create column cast_type using map function in Depth_id column with get_cast_type function
+    select(-Depth_ID) # remove Depth_id column
+  
+```
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+
+  calcofi_data %>% head(5) # display the first 5 rows using the head function`
+
+```
+
+<br />
+<br />
+
+We can now see that our data frame now consists of `r ncol(calcofi_data) # return the number of columns` columns. The only categorical variable in our dataset is cast_type.
+
+<br />
+
+# Task 4.
+
+<br />
+
+Following, we are going to create a new column called decade corresponding to the year column. Therefore, we are going now to have the following eight columns in our dataset:
+
+1. depth: The depth of the cast in meters
+2. temperature: The temperature measured in degrees centigrade
+3. salinity: The salinity measured on the Practical Salinity Scale
+4. oxygen: The oxygen level in micromoles per kilogram of seawater
+5. chlorophyll: The acetone extracted chlorophyll-a measured fluorometrically
+6. year: the year
+7. cast_type: the cast type
+8. decade: decade corresponding to the year
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  previousNumberOfColumns <- ncol(calcofi_data) # return the number of columns
+  
+  get_decade <- function(year) { # returns the decade depending the year
+    
+    i <- 1 # number of decade
+    while(TRUE) { # it will return the decade inside the while so it will stop eventually
+      if(10 * i <= year && year < 10 * (i + 1)) # if the year is bigger or equal than the first decade and smaller than the next decade, then we know it's decade eg. 1937 >= 193 * 10 and 1937 < 194 * 10 so it's the 1930 decade
+        return(as.integer(i * 10)) # return the decade
+      else # not the correct decade
+        i <- i + 1 # next decade
+    }
+    
+  }
+
+  calcofi_data <- calcofi_data %>% # from calcofi data
+    mutate(decade = map_int(year, get_decade)) # create column decade using map function in year column with get_decade function
+  
+```
+
+<br />
+<br />
+
+Then, we are going to transform our dataset into a smaller one, using only data that have a depth of 100 meters and belong to the decade between 1950 and 2000 inclusive.
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  previousNumberOfRows <- nrow(calcofi_data) # return the number of rows
+  
+  calcofi_data <- calcofi_data %>% # from calcofi data
+    filter(depth == 100) %>% # the depth must be 100
+    filter(decade >= 1950) %>% # the decade must be bigger or equal to 1950
+    filter(decade <= 2000) # the decade must be smaller or equal to 2000
+  
+  
+```
+
+<br />
+<br />
+
+Our data frame now consists of `r nrow(calcofi_data) # returns the number of rows` rows and `r ncol(calcofi_data) # returns the number of columns` columns, from the previously `r previousNumberOfRows` rows and `r previousNumberOfColumns` columns.
+
+<br />
+
+# Task 5.
+
+<br />
+
+Lastly, we are going to generate a summary data frame that gives the sample mean, the sample median, and the sample standard deviations of the temperature, oxygen, and salinity, broken down by decade. That is, the data frame will have six rows and ten columns. Each of the six rows will correspond to one of the six decades between 1950 and 2000 inclusive. The first column will specify the decade and the remaining nine columns will correspond to one of the means, median, and standard deviation applied to the variables temperature, oxygen, and salinity.
+
+The format of the column names is the following: “col_function” where “col” denotes the first three letters of the corresponding variable name and “function” denotes the acronym name of the variable. For example, the name “oxy_md” gives the medians for the oxygen variable, and the name “sal_sd” gives the standard deviations for the salinity variable.
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  
+  calcofi_data %>% # from calcofi data
+    group_by(decade) %>% # grouping by decade
+      summarise(across(c("temperature", "oxygen", "salinity"), # from the columns temperature, oxygen, salinity
+                       list(mean = ~mean(.x, na.rm = 1), # the mean excluding missing values
+                            median = ~median(.x, na.rm = 1), # the median excluding missing values
+                            sd = ~sd(.x, na.rm = TRUE)))) %>% # the standard deviation excluding missing values
+        rename(tem_mn = temperature_mean, tem_md = temperature_median, tem_sd = temperature_sd, oxy_mn = oxygen_mean, oxy_md = oxygen_median, oxy_sd = oxygen_sd, sal_mn = salinity_mean, sal_md = salinity_median, sal_sd = salinity_sd) # renaming the columns xxx_yy (xxx are the first 3 characters from the corresponding variable name, yy are acronyms for the statistic)
+
+```
+
+<br />
+<br />
+
+

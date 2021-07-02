@@ -1,0 +1,541 @@
+---
+title: "nf20917_EMATM0061_B"
+author: "Pantelis Zoumpoulidis"
+date: "05/01/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk $ set(echo = TRUE)
+
+options(scipen = 999) # so we can print a really small or big number with all of its digits
+```
+<style>
+body {
+text-align: justify}
+</style>
+## Section C: Supervised Learning
+
+# Task 1.
+
+<br />
+
+Supervised learning is the task of learning a function that outputs a value based on input data that have feature vectors and labels. The method that we will use for this purpose is called k-nearest neighbors classification (k-NN). Classification is the categorize of a new observation depended on the observations we already have and the category that they belong to. K-nearest neighbor classification is a clever, yet simple to understand the algorithm. Firstly, we choose a number of "neighbors". This refers to the number of the closest neighbors we want to count when a new observation is being calculated. The distance is being measured by the [Euclidean distance](https://en.wikipedia.org/wiki/Euclidean_distance). The Euclidean distance between 2 data points $P_1 (x_1, y_1)$ and $P_2 (x_2, y_2)$ is $d = \sqrt{(x_2 - x_1) ^ 2 + (y_2 - y_1) ^ 2}$. Then, among these K-neighbors, we count the number of data points in each category. Finally, we assign the new observation to the category that we counted the most neighbors. This algorithm can be used for every classification problem, but its biggest disadvantage is that the bigger the dataset is, the slower it gets.
+
+<br />
+
+![](/Users/zoumpp/Documents/Data Science MSc/Statistical Computing and Empirical Methods (SCEM) TB1/Assesment/Section C Supervised Learning/knn example.jpg)
+
+<br />
+
+In the graph above, we can see an example of how the K-neighbors classification algorithm works. When K = 1, the new data point will classify as Category 1, because the closest neighbor to it is from Category 1. On the other hand, when K = 3, the new data point will classify as Category 2, because there are more neighbors from Category 2 than from Category 1 in the first 3 neighbors. The next graph demonstrates how the Euclidean distance is being computed.
+
+<br />
+
+![](/Users/zoumpp/Documents/Data Science MSc/Statistical Computing and Empirical Methods (SCEM) TB1/Assesment/Section C Supervised Learning/euclidean distance.jpg)
+
+<br />
+
+# Task 2.
+
+<br />
+
+
+```{r, warning = FALSE, message = FALSE}
+  
+  originalData <- read.csv("/Users/zoumpp/Documents/Data Science MSc/Statistical Computing and Empirical Methods (SCEM) TB1/Assesment/Section C Supervised Learning/heart.csv", header = TRUE)   # importing the dataset. header = TRUE because the first row is consisted of the names of the columns
+  
+```
+
+<br />
+
+For the purposes of this assessment, we are going to use the [Heart Disease UCI dataset](https://www.kaggle.com/ronitf/heart-disease-uci) downloaded from [kaggle](https://www.kaggle.com/). This database consists of 14 different attributes of real patients that had a diagnosis (negative or positive) for the presence or absence of heart disease. The original database contained 76 attributes, while this is a "processed" database with only 14 of them. We will use the absence or the presence of heart disease as our classification problem and 13 different features for this project. The following are the variables that we are going to use for our classification problem:
+
+1. target (absence or presence of heart disease): binary variable (0 or 1)
+2. age: discrete variable (integer from 29 to 77)
+3. sex: binary variable (0 or 1)
+4. chest pain type (values: 0, 1, 2, 3): discrete variable (integer from 0 to 3)
+5. resting blood pressure: discrete variable (integer from 94 to 200)
+6. serum cholestorol in mg/dl: discrete variable (integer from 126 to 564)
+7. fasting blood sugar > 120 mg/dl: binary variable (0 or 1)
+8. resting electrocardiographic results (values: 0, 1, 2): discrete variable (integer from 0 to 2)
+9. maximum heart rate achieved: discrete variable (integer from 71 to 202)
+10. exercise-induced angina: binary variable (0 or 1)
+11. oldpeak = ST depression induced by exercise relative to rest: continuous variable (real from 0 to 6.2)
+12. the slope of the peak exercise ST segment: discrete variable (integer from 0 to 2)
+13. number of major vessels (values: 0, 1, 2, 3) colored by flouroscopy: discrete variable (integer from 0 to 3)
+14. thal (normal, fixed defect or reversible defect): discrete variable (integer from 1 to 3)
+
+<br />
+
+For reasons of confidentiality, the names and the social security numbers of the patients were removed from the "processed" database. To begin with, we are going to import our dataset and clear any observations that are not in compliance with the information of the attributes (eg. if there is a number different than 0, 1, 2, or 3 in the number of major vessels colored by flouroscopy variable).
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+
+  library(tidyverse) # import library
+  
+  data <- originalData %>% # from original data
+    filter(cp %in% (0:3) & restecg %in% (0:2) & ca %in% (0:3) & thal %in% (1:3)) %>% # filter with the information of the attributes
+    select(target, age, cp, sex, trestbps, chol, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal) %>% # select columns
+    na.omit() # drop na rows
+  
+```
+
+<br />
+
+So, after the data wrangling and cleaning, we have a total of `r nrow(data) # number of rows` observations consisted of `r ncol(data) # number of columns` columns.
+
+<br />
+
+# Task 3.
+
+<br />
+
+First things first, because of the different ranges of the values of the variables, we need to normalize our data before we use them for any kind of data processing and analysis. The reason behind this is that in order to have an efficient model we can't have big differences between the values of the variables because all the variables have the same weight over the outcome. After the normalization, all variables will consist of a real number ranging from 0 to 1 except the binary ones that will be either 0 or 1.
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  normalize <- function(x) { return((x - min(x)) / (max(x) - min(x))) } # normalization function
+
+  data $ age <- normalize(data $ age) # normalize age
+  data $ cp <- normalize(data $ cp) # normalize cp
+  data $ trestbps <- normalize(data $ trestbps) # normalize trestbps
+  data $ chol <-normalize(data $ chol) # normalize chol
+  data $ restecg <- normalize(data $ restecg) # normalize restecg
+  data $ thalach <- normalize(data $ thalach) # normalize thalach
+  data $ oldpeak <- normalize(data $ oldpeak) # normalize oldpeak
+  data $ slope <- normalize(data $ slope) # normalize slope
+  data $ ca <- normalize(data $ ca) # normalize ca
+  data $ thal <- normalize(data $ thal) # normalize thal
+  
+```
+
+<br />
+
+The following is a preview of our dataset after all the modifications made.
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  data %>% head(3) # display the 3 first rows of data
+  
+```
+
+<br />
+
+The appropriate metric for the performance of our model is the percentage of false predictions. The lowest the percentage, the better the performance. In this Task, we will explore the performance of our model on both train and validation data as we vary the amount of train data used. The number of K-neighbors that we are going to use for our model, equals 17 as it is the number closest to the root of the total of our observations ($\sqrt{296} =$ `r sqrt(296)` $\approx 17$).
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  library(class) # import library
+
+  computeFalsePredictionsPercentageKNN <- function(trainX, trainY, testX, testY, k) { # compute the false predictions percentage of what is entered as test data based on what is entered as train data
+    
+    set.seed(11012021) # set random seed for reproducibility
+    
+    predictions = knn(train = trainX,
+                   test = testX,
+                   cl = trainY,
+                   k = k) # train our model and predict based on train data
+    
+    numberOfFalsePredictions <- sum((predictions != testY), na.rm = TRUE) # number of false predictions
+    
+    totalPredictions <- length(predictions) # number of total predictions
+    
+    falsePredictionsPercentage <- mean((numberOfFalsePredictions / totalPredictions) * 100) # false predictions percentage
+    
+    return(falsePredictionsPercentage) # return false predictions percentage
+    
+  }
+  
+  getRandomTrainDataWithTheSameValidationData <- function(data, trainingDataPercentage, y) { # get random train and validation data based on the percentage of data given
+    
+    totalNumber <- data %>% nrow() # number of total observations
+    
+    trainNumber <- floor(totalNumber * (trainingDataPercentage / 100)) # number of train examples (data percentage used - 20% (validation data))
+    validationNumber <- floor(totalNumber * 0.2) # number of validate samples (20% of data)
+  
+    # randomly sample indices for the test, validation and train data
+    
+    set.seed(11012021) # set random seed for reproducibility
+    validationIndicies <- sample(seq(totalNumber), validationNumber) # random sample of test indicies, GETTING THE SAME 20% OF THE DATASET EVERY TIME
+    trainIndicies <- sample(setdiff(seq(totalNumber), validationIndicies), trainNumber) # validate data indicies
+    
+    # extract train, validation and test data sets based on their indices
+    
+    train <- data %>% filter(row_number() %in% trainIndicies) # train data
+    validation <- data %>% filter(row_number() %in% validationIndicies) # validation data
+    
+    # split the train, validation and test data sets into feature vectors and labels
+    
+    trainX <- train %>% select(-y) # train feature vectors
+    trainY <- train %>% select(y) # train labels
+    
+    validationX <- validation %>% select(-y) # validate feature vectors
+    validationY <- validation %>% select(y) # validate labels
+    
+    return(list(trX = trainX, trY = trainY, vX = validationX, vY = validationY)) # return the data
+    
+  }
+  
+  trainAndValidationFalsePredictionsPercentageForDifferentNumberOfTrainData <- function(data, trainingDataPercentage, y, k) { # compute the false predictions percentage on train and validation data
+    
+    randomTrainAndValidationData <- getRandomTrainDataWithTheSameValidationData(data, trainingDataPercentage, y) # get random train data with the same validation data every time
+    
+    trainX <- randomTrainAndValidationData[[1]] # train features
+    trainY <- unlist(randomTrainAndValidationData[[2]], use.names = FALSE) # train labels
+    validationX <- randomTrainAndValidationData[[3]] # validation features
+    validationY <- unlist(randomTrainAndValidationData[[4]], use.names = FALSE) # validation labels
+    
+    trainFalsePredictionsPercentage<- computeFalsePredictionsPercentageKNN(trainX, trainY, trainX, trainY, k) # compute the false predictions percentage on the train data
+    
+    validationFalsePredictionsPercentage <- computeFalsePredictionsPercentageKNN(trainX, trainY, validationX, validationY, k) # compute the false predictions percentage on the validation data
+    
+    return(list(tFPP = trainFalsePredictionsPercentage, vFPP = validationFalsePredictionsPercentage)) # return the false predictions percentage
+    
+  }
+  
+  trainDataPercentages <- seq(20, 100 - 20 - 20, 1) # from 20% to 60%. The rest are 20% validation data and 20% test data (not used)
+  
+  k <- 17 # number of k is set to 17. it is the closest root to our total number of observations
+  
+  trainAndValidationFalsePredictionsPercentagewithDifferentNumberofTrainDataUsed <- data.frame(trainDataPercentage = trainDataPercentages) %>% # create adata frame with all the train data percentages used and the train and validation false prediction percentages
+    mutate(trainFalsePredictionsPercentage = map(trainDataPercentage, ~trainAndValidationFalsePredictionsPercentageForDifferentNumberOfTrainData(data, .x, "target", k)[1] %>% unlist())) %>% # compute the train false predictions percentage for the different number of train data used
+    mutate(validationFalsePredictionsPercentage = map(trainDataPercentage, ~trainAndValidationFalsePredictionsPercentageForDifferentNumberOfTrainData(data, .x, "target", k)[2] %>% unlist())) # compute the validation false predictions percentage for the different number of train data used
+  
+    ggPlotTrainData <- trainAndValidationFalsePredictionsPercentagewithDifferentNumberofTrainDataUsed %>% ggplot(aes(x = trainDataPercentage, y = as.numeric(trainFalsePredictionsPercentage))) + # create a ggplot
+      geom_smooth(method = lm) + theme_bw() + # add smoother line and black and white background
+      labs(x = "Train Data Percentage (%)", y = "Train False Prediction Percentage (%)") # set label names
+  
+      ggPlotValidationData <- trainAndValidationFalsePredictionsPercentagewithDifferentNumberofTrainDataUsed %>% ggplot(aes(x = trainDataPercentage, y = as.numeric(validationFalsePredictionsPercentage))) + # create a ggplot
+      geom_smooth(method = lm) + theme_bw() + # add smoother line and black and white background
+      labs(x = "Train Data Percentage (%)", y = "Validation False Prediction Percentage (%)") # set label names
+      
+      library(gridExtra) # import library
+      
+```
+
+<br />
+<center>
+```{r, warning = FALSE, message = FALSE}
+
+  grid.arrange(ggPlotTrainData, ggPlotValidationData, ncol = 2) # display the plots
+  
+```
+</center>
+<br />
+
+Above we can observe the percentage of false predictions changing, as the percentage of the train data used for the predictions change We detect a constant decrease in the percentage of the false predictions on both train and validation data as the number of data used is increasing (from 20% to 60%, 20% of them are the validation data) which is exactly what we were expecting. We observe a decent average false prediction percentage of `r round(mean(as.numeric(trainAndValidationFalsePredictionsPercentagewithDifferentNumberofTrainDataUsed $ trainFalsePredictionsPercentage)), digits = 2) # mean of false predictions percentage on train data with 2 decimal places`% on train data which is higher, as we were expecting, than the `r round(mean(as.numeric(trainAndValidationFalsePredictionsPercentagewithDifferentNumberofTrainDataUsed $ validationFalsePredictionsPercentage)), digits = 2) # mean of false predictions percentage on validation data with 2 decimal places`% on validation data. Both of these percentages are not the most anticipated though. 
+
+<br />
+
+# Task 4.
+
+<br />
+
+Additionally, we are going to explore the performance of our model as we vary our hyperparameter, which in our case is the number of K-neighbors. For this purpose, we are going to train our model and predict outcomes for 50 different neighbors (1 to 50), with the same train and validation data (80% of the whole dataset). Finally, we will demonstrate a plot of how the false prediction percentage is changing as the number of K-neighbors are changing.
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+
+  getRandomTrainValidationAndTestData <- function(data, trainDataPercentage, validationDataPercentage, yName) { # get random train and validation data based on the percentage of data given
+    
+    # set the size of the train, validate and  test data sets
+    
+    totalNumber <- data %>% nrow() # total number of examples
+    trainNumber <- floor(totalNumber * trainDataPercentage) # number of train examples
+    vaidationNumber <- floor(totalNumber * validationDataPercentage) # number of validate samples
+    testNumber <- totalNumber - (trainNumber + vaidationNumber) # number of test samples
+    
+    # randomly sample indices for the test, validation and train data
+    
+    set.seed(11012021) # set random seed for reproducibility
+    testIndicies <- sample(seq(totalNumber), testNumber) # random sample of test indicies
+    validationIndicies <- sample(setdiff(seq(totalNumber), testIndicies), vaidationNumber) # validate data indicies
+    trainIndicies <- setdiff(seq(totalNumber), union(testIndicies, validationIndicies)) # training data indicies
+    
+    # extract train, validation and test data sets based on their indices
+    
+    trainData <- data %>% filter(row_number() %in% trainIndicies) # train data
+    validationData <- data %>% filter(row_number() %in% validationIndicies) # validation data
+    testData <- data %>% filter(row_number() %in% testIndicies) # test data
+    
+    # split the train, validation and test data sets into feature vectors and labels
+    
+    trainX <- trainData %>% select(-yName) # train feature vectors
+    trainY <- trainData %>% pull(yName) # train labels
+    
+    validationX <- validationData %>% select(-yName) # validate feature vectors
+    validationY <- validationData %>% pull(yName) # validate labels
+    
+    testX <- testData %>% select(-yName) # test feature vectors
+    testY <- testData %>% pull(yName) # test labels
+    
+    return(list(trX = trainX, trY = trainY, vX = validationX, vY = validationY, tX = testX, tY = testY)) # return the data
+    
+  }
+  
+  randomTrainValidationAndTestData <- getRandomTrainValidationAndTestData(data = data, trainDataPercentage = 0.60, validationDataPercentage = 0.20, yName = "target") # get random train, validation and test data. 60% train data, 20% validation data, 20% test data
+  
+  trainX <- randomTrainValidationAndTestData[[1]] # train features
+  trainY <- unlist(randomTrainValidationAndTestData[[2]], use.names = FALSE) # train labels
+  validationX <- randomTrainValidationAndTestData[[3]] # validation features
+  validationY <- unlist(randomTrainValidationAndTestData[[4]], use.names = FALSE) # validation labels
+  testX <- randomTrainValidationAndTestData[[5]] # test features
+  testY <- unlist(randomTrainValidationAndTestData[[6]], use.names = FALSE) # test labels
+  
+  ks <- seq(1, 50, 1) # K-neighbors ranging from 1 to 50
+  
+  trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs <- data.frame(k = ks) %>% # create a data fraame with all the ks used and the train and validation false prediction percentages
+    mutate(trainFalsePredictionsPercentage = map(k, ~computeFalsePredictionsPercentageKNN(trainX, trainY, trainX, trainY, .x))) %>% # compute the validation false predictions percentage on train data for all the different K-neighbors
+    mutate(validationFalsePredictionsPercentage = map(k, ~computeFalsePredictionsPercentageKNN(trainX, trainY, validationX, validationY, .x))) # compute the validation false predictions percentage on validation data for all the different K-neighbors
+  
+  minValidationFalsePredictionsPercentage <- trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs %>% pull(validationFalsePredictionsPercentage) %>% unlist() %>% min() # get the lowest false predictions percentage
+
+  optimalKs <- trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs %>% filter(validationFalsePredictionsPercentage == minValidationFalsePredictionsPercentage) %>% pull(k) # find the ks of the lowest percentage
+  
+  trainDataFalsePredictionsPercentagePlot <- trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs %>% ggplot(aes(x = k, y = as.numeric(trainFalsePredictionsPercentage))) + # create a ggplot
+    geom_line() + geom_point() + theme_bw() + # add line, points and black and white background
+    labs(x = "Number of K-neighbors", y = "Train False Prediction Percentage (%)") # set label names
+  
+    validationDataFalsePredictionsPercentagePlot <- trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs %>% ggplot(aes(x = k, y = as.numeric(validationFalsePredictionsPercentage))) + # create a ggplot
+    geom_line() + geom_point() + theme_bw() + # add line, points and black and white background
+    labs(x = "Number of K-neighbors", y = "Validation False Prediction Percentage (%)") # set label names
+  
+```
+
+<br/>
+<center>
+```{r, warning = FALSE, message = FALSE}
+  
+  grid.arrange(trainDataFalsePredictionsPercentagePlot, validationDataFalsePredictionsPercentagePlot, ncol = 2) # display the plots
+  
+```
+</center>
+<br />
+
+As we can detect in the plot above, we have a negative correlation between the number of K-neighbors and false predictions percentage on validation data until the `r tail(optimalKs, n = 1) # last neighbor with the lowest error percentage`th neighbor (`r round(minValidationFalsePredictionsPercentage, digits = 2) # get the false predictions percentage rounded to 2 digits`% false predictions). There are numerous K-neighbors (`r length(optimalKs) # number of Ks with the lowest percentage` to be exact) that hit the lowest false predictions percentage on validation data. After the `r tail(optimalKs, n = 1) # last neighbor with the lowest error percentage`th neighbor, there is a slight increase in the false predictions percentage. Differently, there is an almost constant positive correlation between the number of K-neighbors and the false predictions percentage on test data, until the 39th neighbor where we see a small decrease in this percentage. An interesting point that we want to mention here is that the mean false prediction percentage on train data (`r round(mean(as.numeric(trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs $ trainFalsePredictionsPercentage)), digits = 2) # mean of false predictions percentage on validation data with 2 decimal places`%) is higher than the same percentage on validation data (`r round(mean(as.numeric(trainAndValidationFalsePredictionsPercentageWithDifferentNumberOfKs $ validationFalsePredictionsPercentage)), digits = 2) # mean of false predictions percentage on validation data with 2 decimal places`%).
+
+<br />
+
+# Task 5.
+
+<br />
+
+Based on the previous plot, in order to report the performance of our model on the test data, we are going to use all the K-neighbors that returned the lowest false predictions percentage. We will retrain our model every time the number of K-neighbors is changing, with the train data now to be composed of the union of the train and the validation data. In the end, we will create a plot with all the different false prediction percentages that we are going to compute, selecting the lowest one as our optimal hyperparameter for our model.
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  trainAndValidationX <- rbind(trainX, validationX) # union of train and validation features
+  trainAndValidationY <- c(trainY, validationY) # union of train and validation labels
+  
+  falsePredictionPercentagesWithOptimalKs <- data.frame(k = optimalKs) %>%
+    mutate(falsePredictionsPercentage = map(k, ~computeFalsePredictionsPercentageKNN(trainAndValidationX, trainAndValidationY, testX, testY, .x))) # compute the false predictions percentages for every optimal K we found
+  
+  falsePredictionPercentagesWithOptimalKsPlot <- falsePredictionPercentagesWithOptimalKs %>% ggplot() + geom_col(aes(x = k, y = as.numeric(falsePredictionsPercentage), fill = k), width = 0.5, show.legend = FALSE) + # create gg plot and add a geom col
+  scale_x_discrete(limits = as.vector(falsePredictionPercentagesWithOptimalKs[, 1])) + theme_bw() + labs(x = "Number of K-neighbors", y = "False Prediction Percentage (%)") # choose the number of K-neighbors to be shown on x axis, black and white background, set label names
+  
+```
+
+<br />
+<center>
+```{r, warning = FALSE, message = FALSE}
+  
+  falsePredictionPercentagesWithOptimalKsPlot # display the plot
+  
+```
+</center>
+<br />
+
+Looking at the graph above, we discover that the majority of the K-neighbors returned the same false prediction percentage (20%). The lowest percentage noted on test data equals `r round(as.numeric(falsePredictionPercentagesWithOptimalKs[[2]][1]), digits = 2) # the lowest false predictions percentage of the K-neighbors used`%, which is obtained by using 28 and 32 number of K-neighbors. We will randomly choose the first one as our hyperparameter for our model, so our hyperparameter equals to K $=$ `r falsePredictionPercentagesWithOptimalKs $ k[1] # first K`. This percentage is `r round(as.numeric(falsePredictionPercentagesWithOptimalKs[[2]][1]), digits = 2) - round(minValidationFalsePredictionsPercentage, digits = 2)`% higher than the validation of false predictions percentage. This is quite abnormal, as we supposed to have a smaller one because we use more data to train our model and as we observed in Task 3 when we increase the amount of data used, we tend to receive a smaller percentage of error. On our test data, we get approximately `r round(nrow(testX) * (round(as.numeric(falsePredictionPercentagesWithOptimalKs[[2]][1]), digits = 2) / 100)) # number of false predictions` false predictions, from a total of `r nrow(testX) # number of observations` observations.
+
+<br />
+
+Furthermore, we are going to use the cross-validation to check if we can get better results on our test data. In the cross-validation method, we split the dataset into train and validation data, and test data. Then, we split further the train and validation data into segments (folds). Each segment is being used as validation data and the rest as training data. We use this method for every single segment until all segments had the role of validation data once. Next, we compare the mean percentage of false predictions of every K-neighbor used, and then we get the number of K-neighbors which achieved the smaller percentage. Finally, we will use this number of K-neighbors to check our false prediction percentage on our test data. Theoretically, the percentage that we are going to compute, have to be lower than the one we computed before.
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  trainValidationByFold <- function(trainAndValidationData, fold, numberOfFolds) { # split train and validation data by fold
+    
+    numberOfTrainAndValidationData <- trainAndValidationData %>% nrow() # compute the number of train and validation data
+    numberPerFold <- ceiling(numberOfTrainAndValidationData / numberOfFolds) # compute the observations per fold
+    
+    foldStart <- (fold - 1) * numberPerFold + 1 # first row number of fold
+    foldEnd <- min(fold * numberPerFold, numberOfTrainAndValidationData) # last row number of fold
+    foldIndicies <- seq(foldStart, foldEnd) # rows of observations
+    
+    validationData <- trainAndValidationData %>% filter(row_number() %in% foldIndicies) # take validation data
+    
+    trainData <- trainAndValidationData %>% filter(!row_number() %in% foldIndicies) # take train data (everything else)
+  
+    return(list(trainData = trainData, validationData = validationData)) # return the data
+    
+  }
+  
+  knnValidationFalsePredictionsPercentageByFoldK <- function(trainAndValidationData, fold, numberOfFolds, yName, k) { # compute validation false predictions percentage by fold
+    
+    dataSplit <- trainValidationByFold(trainAndValidationData, fold, numberOfFolds) # split data
+    trainData <- dataSplit $ trainData # take the train data
+    validationData <- dataSplit $ validationData # take the validation data
+  
+    tempFalsePredictionsPercentageOfValidation <- computeFalsePredictionsPercentageKNN(trainData %>% select(-yName), trainData %>% pull(yName), validationData %>% select(-yName), validationData %>% pull(yName), k) # compute the false prediction percentage of validation data
+    
+    return(tempFalsePredictionsPercentageOfValidation) # return the false prediction percentage of validation data
+    
+  }
+  
+  totalNumber <- data %>% nrow() # total number of observations
+  testNumber <- ceiling(0.20 * totalNumber) # take 20% of our data as test data
+  
+  set.seed(11012021) # set seed for reproducibility
+  data <- data %>% sample_n(size = nrow(.)) # randomly shuffle our data
+  testIndicies <- seq(totalNumber - testNumber + 1, totalNumber) # take the last data
+  
+  testData <- data %>% filter(row_number() %in% testIndicies) # take data from the testIndicies
+  trainAndValidationData <- data %>% filter(!row_number() %in% testIndicies) # take everything else
+  
+  numberOfFolds <- 10 # number of folds
+  ks <- seq(1, 50, 1) # k neighbors
+  
+  crossValidationFalsePredictionsPercentage <- cross_df(list(k = ks, fold = seq(numberOfFolds))) %>% # create a data frame with all the ks used, number of folds, and the validation false prediction percentage per fold
+    mutate(falsePredictionsPercentageOfValidation = map2_dbl(k, fold, ~knnValidationFalsePredictionsPercentageByFoldK(trainAndValidationData, .y, numberOfFolds, "target", .x))) %>% # compute the false prediction percentage of valdiation fold
+    group_by(k) %>% # group by k-neighbors
+    summarise(falsePredictionsPercentageOfValidation = mean(falsePredictionsPercentageOfValidation)) # take the mean of the false prediction percentages
+  
+  # find the hyper-parameter which minimizes the validation error
+  minFalsePredictionsPercentageOfValidation <- crossValidationFalsePredictionsPercentage %>% pull(falsePredictionsPercentageOfValidation) %>% min() # take the minimum validation error
+  
+  optimalK <- crossValidationFalsePredictionsPercentage %>% filter(falsePredictionsPercentageOfValidation == minFalsePredictionsPercentageOfValidation) %>% pull(k) # take the optimal number of k neighbors
+  
+```
+
+<br />
+
+After using cross-validation, we figure out the minimum false predictions percentage to be `r round(minFalsePredictionsPercentageOfValidation, digits = 2) # lowest false predictions percentage`% - a percentage a bit lower than the one we measured at the beginning of this Task -, using `r optimalK # optimal K` K-neighbors. Next, we are going to use this hyperparameter on our test data and compute the error.
+
+<br />
+
+```{r}
+  
+  falsePredictionsErrorWithOptimalK <- computeFalsePredictionsPercentageKNN(trainAndValidationData %>% select(-"target"), trainAndValidationData %>% pull("target"), testData %>% select(-"target"), testData %>% pull("target"), optimalK) # with the optimal hyper-parameter using the combined train and validation data make predictions and compute the test error
+  
+```
+
+<br />
+
+We compute a false prediction error of `r falsePredictionsErrorWithOptimalK # false predictions error with optimal k after cross-validation`%, which is higher than the `r round(as.numeric(falsePredictionPercentagesWithOptimalKs[[2]][1]), digits = 2) # the lowest false predictions percentage of the K-neighbors used`% we found before. As we notice, our model keeps returning values that are not always following the theory, and, of course, the logic. The last thing that we are going to do with our dataset, is to do cross-validation to get a better understanding of performance on unseen data (it is also referred to sometimes as k * l - fold cross-validation). The difference with the cross-validation before is that now we are not going to separate our test data and make predictions on them. Contrarily, we are going to split our whole dataset into folds, and as we did before with the validation data, we are going to use each fold as test data once.  The rest of the folds will play the role of train and validation data. Basically, this means that the whole dataset will be used both as test data as well as train and validation data. This is going to be computationally expensive, as we add another outer-loop through our dataset. The point of doing this is to measure the mean percentage of false predictions that we are going to have on unseen data. Once again, theoretically, we expect a percentage between `r round(as.numeric(falsePredictionPercentagesWithOptimalKs[[2]][1]), digits = 2) # the lowest false predictions percentage of the K-neighbors used`% and `r falsePredictionsErrorWithOptimalK # false predictions error with optimal k after cross-validation`%.
+
+<br />
+
+```{r, message = FALSE}
+  
+  trainTestbyFold <- function(data, fold, numberOfFolds) { # split data into train and test by fold
+    
+    totalNumber <- data %>% nrow() # compute the total number of observations
+    numberPerFold <- ceiling(totalNumber / numberOfFolds) # compute the number per fold
+    
+    foldStart <- (fold - 1) * numberPerFold + 1 # first row number of fold
+    foldEnd <- min(fold * numberPerFold, totalNumber) # last row number of fold
+    
+    foldIndicies <- seq(foldStart, foldEnd) # compute the number of indicies
+    
+    foldTestData <- data %>% filter(row_number() %in% foldIndicies) # take the test data
+    foldTrainAndValidationData <- data %>% filter(!row_number() %in% foldIndicies) # take the train and validation data
+  
+    return(list(trainAndValidationData = foldTrainAndValidationData, testData = foldTestData)) # return train, validation data and test data
+    
+  }
+  
+  getOptimalKByCV <- function(trainAndValidationData, numberOfFolds, yName, ks) { # compute the optimal k neighbor by using cross-validation
+    
+    folds <- seq(numberOfFolds) # number of folds
+    
+    crossValidationFalsePredictionsPercentageResults <- cross_df(list(k = ks, fold = folds)) %>% # create a data frame of all ks used, folds, and the false prediction percentage of validation 
+      mutate(falsePredictionsPercentageOfValidation = map2_dbl(k, fold, ~knnValidationFalsePredictionsPercentageByFoldK(trainAndValidationData, .y, numberOfFolds, yName, .x))) %>% # compute the false prediction percentage of validation
+      group_by(k) %>% # group by k-neighbor
+      summarize(falsePredictionsPercentageOfValidation = mean(falsePredictionsPercentageOfValidation)) # take the mean for each k
+  
+    minFalsePredictionsPercentageOfValidation <- crossValidationFalsePredictionsPercentageResults %>% pull(falsePredictionsPercentageOfValidation) %>% min() # take the min false prediction percentage
+    optimalK <- crossValidationFalsePredictionsPercentageResults %>% filter(falsePredictionsPercentageOfValidation == minFalsePredictionsPercentageOfValidation) %>% pull(k) # find the optimal k used to get the min false prediction percentage
+    
+    return(optimalK) # return the optimal k
+    
+  }
+  
+  knnFalsePredictionsPercentageByFold <- function(data, fold, numberOfTestFolds, numberOfValidationFolds, yName, ks) { # compute the false prediction percentage by fold
+    
+    dataSplit <- trainTestbyFold(data, fold, numberOfTestFolds) # compute data split
+    trainAndValidationData <- dataSplit $ trainAndValidationData # extract the train and validation data
+    testData <- dataSplit $ testData # extract test data
+    
+    optimalK <- getOptimalKByCV(trainAndValidationData, numberOfValidationFolds, yName, ks) # compute optimal k
+    
+    optimisedKNNPercentage <- computeFalsePredictionsPercentageKNN(trainAndValidationData %>% select(-yName), trainAndValidationData %>% pull(yName), testData %>% select(-yName), testData %>% pull(yName), optimalK) # compute the false prediction percentage using the optimal k we found
+    
+    return(optimisedKNNPercentage) # return the percentage
+    
+  }
+  
+  
+  knnFalsePredictionsPercentage <- function(data, numberOfTestFolds, numberOfValidationFolds, yName, ks) { # compute the false prediction percentage of the data
+    
+    set.seed(11012021) # set random seed for reproducibility
+    data <- data %>% sample_n(nrow(.)) # shuffle data so we get random ones
+    folds <- seq(numberOfTestFolds) # number of folds
+    
+    meanFalsePredictionsPercentage <- data.frame(fold = folds) %>% # compute the mean false prediction percentage
+      mutate(falsePredictionsPercentage = map_dbl(fold, ~knnFalsePredictionsPercentageByFold(data, .x, numberOfTestFolds, numberOfValidationFolds, yName, ks))) %>% # compute the false prediction percentage of each fold     
+      pull(falsePredictionsPercentage) %>% # take the false prediction percentages
+      mean() # compute the mean false prediction percentage
+    
+    return(meanFalsePredictionsPercentage) # return the mean false prediction percentage
+    
+  }
+  
+  knnfalsePredictionsPercentageOnUnseenData <- knnFalsePredictionsPercentage(data, numberOfTestFolds = 10, numberOfValidationFolds = 6, yName = "target", ks = seq(17)) # compute the mean false prediction percentage
+  
+```
+
+<br />
+
+We compute a false prediction percentage of `r round(knnfalsePredictionsPercentageOnUnseenData, digits = 2) # false predictions error on unseen data`% on unseen data, which is what we were expecting more or less. Basically, what this percentage actually means is that `r round(knnfalsePredictionsPercentageOnUnseenData, digits = 2) # false predictions error on unseen data`% of the time our model is going to return wrong predictions, although, this percentage will be lower as we add more observations to our dataset. This is not an anticipated percentage, but keeping in mind the complexity to figure out heart disease as well as the number of observations we had available (`r nrow(data) # number of observations`), it still counts as a good result.
+
+<br />
+
+BIBLIOGRAPHY
+
+https://en.wikipedia.org/wiki/Classification
+
+https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm
+
+https://www.ole.bris.ac.uk/bbcswebdav/pid-4980491-dt-content-rid-18204277_2/courses/EMATM0061_2020_TB-1/SlidesPDF/Lecture19NonLinearEstimation.pdf
+
+https://www.ole.bris.ac.uk/bbcswebdav/pid-4980491-dt-content-rid-18296517_2/courses/EMATM0061_2020_TB-1/SlidesPDF/Lecture20Crossvalidation.pdf
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

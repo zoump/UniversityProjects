@@ -1,0 +1,471 @@
+---
+title: "nf20917_EMATM0061_B"
+author: "Pantelis Zoumpoulidis"
+date: "28/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk $ set(echo = TRUE)
+
+options(scipen = 999) # so we can print a really small or big number with all of its digits
+```
+<style>
+body {
+text-align: justify}
+</style>
+## Section B: Statistical Hypothesis Testing
+
+# Task 1.
+
+<br />
+
+Hypothesis testing is a methodology for drawing conclusions from data. In this section, we will investigate the **Welch's t** statistical hypothesis test. This test is used to determine if there is a difference between the average value of the two populations. It is also referred to as an unpaired test, meaning that there is an absence of natural pairing between the two samples that we are researching. The **null hypothesis $H_0$** is our default position typically declaring an absence of an interesting phenomenon which in our case means that the is no difference between the two population means ($μ_0 = μ_1$), while the **alternative hypothesis $H_1$** is the presence of an interesting phenomenon we'd like to show which for our purpose means that there is a difference between the two population means ($μ_0 \not= μ_1$). The model of the samples must be *independent and identically distributed (i.i.d.)* from two Gaussian distributions. So, the first sample must be i.i.d. random variables from a fixed Gaussian distribution with unknown **mean $μ_0$** and unknown **standard deviation $σ_0$**, $X_0^1, ..., X_0^{n_0}$ ~ $N (μ_0, σ_0))$. The same applies for the second sample as well with unknown **mean $μ_1$** and unknown **standard deviation $σ_1$**, $X_1^1, ..., X_1^{n_1}$ ~ $N (μ_1, σ_1))$. The first **sample size $n_0$** and the second **sample size $n_1$** could be different in size. Welch's t-test is specifically designed for the case that the variances of the two populations ($σ_1$, $σ_2$) are unknown or different. A **test statistic** $T$ is a function of the data which emphasizes the differences and helps distinguish between the null and the alternative hypothesis and has a known distribution under the null hypothesis $Η_0$: $μ_0 = μ_1$. Welch's T statistic is given by the formula: $T_w = \frac{\bar{X_0} - \bar{X_1}} {\sqrt{\frac{1}{n_0} + \frac{1}{n_1}}}$, where $\bar{X_j}$ is the mean of the j sample, and $S_j^2$ is the variance of the j sample. T statistic is extremely important because it is used to find the p-value of the test. The **p-value** is the probability under the null hypothesis that the test statistic takes a value as extreme or more extreme than the observed value. A very small p-value means that an extreme test statistic outcome would be improbable under the null hypothesis $H_0$.
+
+<br />
+
+# Task 2.
+
+<br />
+
+Next, we are going to investigate the probability of Type I error under the null hypothesis for Welch's t-test. As mentioned later in Task 4 as well, a **Type I error** is an error where the null hypothesis is correct but we incorrectly reject it. In order to investigate it, we will perform a simulation for our Welch's t-test. We will create a function that takes two arguments, the **significance level $α = 0.05$** (gives an upper bound on the test size which is the probability of Type I error) and the **sample size $n = 100$**. The function then will generate two random vectors, the first one is a random vector containing realization of Gaussian sample $X_0^1, ..., X_0^{n_0}$ ~ $N (0, 1))$ and the latter one is a random binary vector $X_1^1, ..., X_1^{n_1}, X_1 = \{0, 1\}$  which will play the role of a categorical variable for separating the random values generated in the first vector into two groups. The two samples, therefore, will be consisted of independent and identically distributed data. This basically means that we are going to have 100 values following the Gaussian distribution which will *randomly* be separated into two groups (group 0 and group 1) which groups have been generated randomly and their size will vary. Thus, we are going to have 2 groups with independent and identically distributed values that follow the Gaussian distribution, and the combined size of them will be equal to 100 ($n_0 + n_1 = 100$). Then, the function will perform a Welch's t-test to test the hypothesis that the means of the two samples are the same $μ_0 = μ_1$, which result will depend upon the significance level $α$ we chose. Finally, the function is going to return TRUE if the null hypothesis is rejected or FALSE if the null hypothesis is not rejected. We will run this function 10.000 times and we will compute the probability of Type I error.
+
+<br />
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  library(dplyr) # so we can use the case-when function
+  library(tidyverse) # so we can use the map_dbl function
+  
+  set.seed(6122020) # set seed so our simulation is reproducible
+  
+  welchTest <- function(a, n) { # create the function. a is the significance level and n the sample size
+    
+    sample0 <- rnorm(n) # create gaussian sample
+    binary_sample <- sample(rep(0:1), size = n, replace = TRUE) # create binary vector
+    sample1 <- case_when( # create binary vector
+      binary_sample == 0 ~ "x", # 0 will be replaced with x
+      binary_sample == 1 ~ "y") # 1 will be replaced with y
+    
+    dataframe <- data.frame(category = sample1, value = sample0) # create our dataframe matching random x and ys generated with the random  generated values
+    
+    ttest <- t.test(value ~ category, data = dataframe) # perform the Welch's t-test and set it to ttest variable
+
+    return((ttest $ p.value) < a) # extract the p.value from the Welch's t-test and compare it to the given significance level returning TRUE if the null hypothesis is rejected and FALSE otherwise
+  }
+  
+  timesOfRunning <- 10000 # the number of trials
+  significanceLevel <- 0.05 # the significance level
+  sampleSize <- 100 # the length of the sample size
+  
+  welchTestTrials <- map_dbl(seq(timesOfRunning), ~welchTest(significanceLevel, sampleSize)) # use map_dbl function to run the welchTest function 10000 times, returning 0 if the welchTest result was FALSE and 1 if the welchTest result was TRUE, and save the results to welchTestTrials as a vector
+  
+  typeIErrorProbability <- mean(welchTestTrials) # computing the mean of the previous results which shows the percentage of Type I error in our simulation
+  
+```
+
+<br />
+<br />
+
+After simulating the Welch's t-test 10.000 times, with random samples (sample size $=$ `r sampleSize`) generated every single time, we come to the conclusion that the probability of Type I error (probability $=$ `r typeIErrorProbability`) that occur is almost the same as the significance level ($α =$ `r significanceLevel`) we used for our simulation, which was the result we were expecting.
+
+<br />
+
+To be able to make things a bit more clear, we are going to plot a 2D graph to demonstrate how the proportions of Type I error change as the significance level $α$ changes. We will start from a significance level of 0.001 up to 0.5 increasing by 0.001.
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  set.seed(6122020) # set seed so our simulation is reproducible
+  
+  significanceLevelInc <- 0.001 # choose the significance level increment
+  
+  runs <- seq(10 * timesOfRunning) # create a sequence of integers of the number of the trials
+  as <- seq(significanceLevelInc, 0.5, significanceLevelInc) # all significance levels from 0 to 0.5 increasing by 0.001
+  
+  significanceLevelProbabilityOfTypeIErrorsPlot <- data.frame(run = runs, a = as) %>% # from our number of trials and alphas
+    mutate(rejectNull = map_dbl(a, ~as.numeric(welchTest(.x, sampleSize)))) %>% # create a new column of 0 and 1 of the Welch's t-test
+    ggplot(aes(x = a, y = rejectNull)) + # create a ggplot
+    geom_smooth() + theme_bw() + # add smoother line and black and white background
+    labs(x = "Significance level α", y = "Probability of Type I error") # set label names
+
+```
+
+<center>
+```{r, message = FALSE, warning = FALSE}
+  significanceLevelProbabilityOfTypeIErrorsPlot # display the plot
+```
+</center>
+
+<br />
+<br />
+
+We can easily observe that the relation between the Probability of Type I error and the significance level follows approximately the mathematical function $y = x$. This indicates a linear match between these two entities, showing that the probability of Type I error in a Welch's t-test is approximately the same as the significance level $α$ we choose for our test, which is the anticipated result because as we have already mentioned $α$ is an upper bound on the test size.
+
+<br />
+
+# Task 3.
+
+<br />
+
+```{r, warning = FALSE, message = FALSE}
+  
+  originalData <- read.csv("/Users/zoumpp/Documents/Data Science MSc/Statistical Computing and Empirical Methods (SCEM) TB1/Assesment/Section B Statistical Hypothesis Testing/diabetes.csv", header = TRUE) # importing the dataset. header = TRUE because the first row is consisted of the names of the columns 
+
+```
+
+<br />
+<br />
+
+For the purposes of this research, we will use the [Pima Indians Diabetes Database](https://www.kaggle.com/uciml/pima-indians-diabetes-database) data set which was originally created by the [National Institute of Diabetes and Digestive and Kidney Diseases](https://en.wikipedia.org/wiki/National_Institute_of_Diabetes_and_Digestive_and_Kidney_Diseases). The sample consists of `r nrow(originalData) # returns the total number of our sample` female patients over the age of 21 who originated from the [Pima Indian tribe](https://en.wikipedia.org/wiki/Pima_people), with the following `r ncol(originalData)` data points: 
+
+1. `r names(originalData)[1] # return the 1st column name`: Number of times pregnant
+2. `r names(originalData)[2] # return the 2nd column name`: Plasma glucose concentration a 2 hours in an oral glucose tolerance test
+3. `r names(originalData)[3] # return the 3rd column name`: Diastolic diastolic blood pressure (mmHg)
+4. `r names(originalData)[4] # return the 4th column name`: Triceps skinfold thickness (mm)
+5. `r names(originalData)[5] # return the 5th column name`: 2-Hour serum insulin (mu U/ml)
+6. `r names(originalData)[6] # return the 6th column name`: Body Mass Index (weight in kg/(height in m$)^2$)
+7. `r names(originalData)[7] # return the 7th column name`: Diabetes pedigree function
+8. `r names(originalData)[8] # return the 8th column name`: Age (years)
+9. `r names(originalData)[9] # return the 9th column name`: Class variable (0 or 1) indicating the negative or positive outcome of the diabetes diagnosis
+
+We are going to investigate if there is a difference in the average diastolic diastolic blood pressure between the patients who diagnosed positive and the patients that diagnosed negative to diabetes. For the purposes of this analysis, we will use 2 data points: the first one is the **outcome** which is a categorical variable (0 or 1) and the second one is the **diastolic blood pressure** which is a continuous variable (ranging from 0 to 109.8), which are appropriate for our unpaired Welch's t-test.
+
+<br />
+
+# Task 4.
+
+<br />
+
+A statistical hypothesis consists of the following key stages:
+
+1. Form a statistical hypothesis including a null hypothesis and an alternative hypothesis
+2. Apply a hypothesis statistical model while checking the validation of its assumptions
+3. Choose a desired significance level $α$
+4. Select an appropriate statistical test
+5. Compute the numerical value of the test statistic
+6. Compute the p-value based upon the test statistic
+7. Draw conclusions based upon the relationship between the computed p-value and the chosen significance level
+
+So we begin with step 1.
+
+<br />
+
+**1. Form a statistical hypothesis including a null hypothesis and an alternative hypothesis**
+
+<br />
+
+We begin with forming our null hypothesis. Our null hypothesis is the following: $H_0: µ_0 = μ_1$, meaning that the average diastolic blood pressure between the females that diagnosed positive and the females that diagnosed negative to diabetes is the same.
+On the other hand, the alternative hypothesis is $H_1: μ_0 \not= μ_1$ which signifies that there is a difference in the average diastolic blood pressure between the females that diagnosed positive and the females that diagnosed negative to diabetes.
+
+From now on we will mention to the Pima Indian females over 21 that diagnosed positive as **positive** and to the Pima Indian females over 21 that diagnosed negative as **negative**.
+
+<br />
+
+**2. Apply a hypothesis statistical model while checking the validation of its assumptions**
+
+<br />
+
+We assume an *approximate* Gaussian model:
+
+Negative: $X_0^{n_0}, ..., X_0^{n_0}$ ~ $N(μ_0, σ_0)$ (i.i.d.) and
+
+Positive: $X_1^{n_1}, ..., X_1^{n_1}$ ~ $N(μ_1, σ_1)$ (i.i.d.)
+
+where $μ_0$ the mean and $σ_0$ the standard deviation of the negative group and $μ_1$ the mean and $σ_1$ the standard deviation of the positive group. $n_0$ and $n_1$ are the sample sizes of the negative and positive groups respectively.
+
+We can validate these assumptions using graphical techniques with the help of R.
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+
+  library(dplyr) # importing library for pipe operator, select function and more
+
+  diagnosisoutcomeBloodpressureDataframe <- originalData %>% # from originalData
+    filter(BloodPressure > 0) %>% # by reading the database description we saw that there some patients with diastolic blood pressure equal to 0. This is not possible so we are going to take all patients with a diastolic blood pressure over 0.
+    select(Outcome, BloodPressure) %>% # select the right columns after reading the database description
+    na.omit() %>% # drop all rows with NaN in it
+    mutate(DiagnosisOutcome = case_when(
+    Outcome == 0 ~ "Negative",
+    Outcome == 1 ~ "Positive"
+  )) %>% # create a new column named DiagnosisOutcome that transforms all values that are 0 to Negative and all values that are 1 to Positive
+    select(-Outcome) # drop unnecessary outcome column
+
+  library(tidyverse) # so we can create the plots
+  
+  ##kernel density plot
+  kernelDensityPlot <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataframe
+  ggplot(aes(sample = BloodPressure)) + # create a ggplot
+  geom_density(aes(x = BloodPressure, color = DiagnosisOutcome)) + theme_bw() # create density plot and change the color theme to black and white
+
+  
+```
+
+<center>
+```{r}
+  kernelDensityPlot # display the plot
+```
+</center>
+
+<br />
+<br />
+
+First of all, we display a kernel density plot for the two samples (group 0 and group 1) where we can easily observe an approximately Gaussian distribution for each one of them. Both distribution plots look fairly unimodal (meaning that they have a single peak only) and in addition, we can clearly see that there are no substantial heavy tails visible from the visible kernel density plot. So, based on the plot above we can assume that the assumptions seem reasonable. Next, we continue with a quantile-quantile plot.
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+
+  ##qq plot
+  qqPlot <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataframe
+  ggplot(aes(sample = BloodPressure)) + # create a ggplot
+  facet_wrap(~DiagnosisOutcome, scales = "free") + stat_qq() + # create 2 plots, 1 for negative and 1 for positive patients and create a qq plot
+  stat_qq_line(color = "blue") + theme_bw() # change the color of the qqplot line to blue and change the color theme to black and white
+  
+```
+
+<center>
+```{r}
+  qqPlot # display the plots
+```
+</center>
+
+<br />
+<br />
+
+Secondly, we have a quantile-quantile plot that plots the theoretical quantiles against the sample quantiles. We can see that there is a fairly good fit for the straight line, except for very few observations. Even though they don’t fit perfectly it's fine to continue with the procedures. This close fit to the straight line indicates a good match between the theoretical quantiles from the Gaussian distribution and the sample quantiles from the sample itself. Due to this effect, we are confident in the assumption of our approximate Gaussian distribution.
+
+Moreover, we also notice that the sample sizes $n_0 =$ `r diagnosisoutcomeBloodpressureDataframe %>% filter (DiagnosisOutcome == "Negative") %>% nrow() # return the number of negatives` and $n_1 =$ `r diagnosisoutcomeBloodpressureDataframe %>% filter (DiagnosisOutcome == "Positive") %>% nrow() # return the number of positives` are quite substantial and this also supports that the sample means will be approximately Gaussian because of the [central limit theorem](https://en.wikipedia.org/wiki/Central_limit_theorem) definition, which implies that when we have a large number of observations that are independent of one another their normalized sum tends towards a normal distribution
+
+Although the assumptions hold approximately and not perfectly, it is absolutely normal and fine to continue with the analysis. Therefore, we feel fairly comfortable that we can model the data as coming from an approximately Gaussian distribution.
+
+<br />
+
+**3.Choose a desired significance level $α$**
+
+<br />
+
+As mentioned in Task 2, a *Type I error* is an error where the null hypothesis is correct but we incorrectly reject it. *Type II error* is the opposite type of error, where the alternative hypothesis is correct but we fail to reject the null hypothesis. The significance is what controls the trade-off between these errors. The *significance level $α$*, as we already pointed out, gives an upper bound on the test size which is the probability of Type I error. *Power* is the probability of Type II error. Therefore, the lower the significance level, the lower the probability of Type I error, but equally the smaller the significance level, the lower the power, consequently the higher the probability of type II error.
+
+For our analysis, we choose a significance level of $a = 0.05$.
+
+<br />
+
+**4. Select an appropriate statistical test**
+
+<br />
+
+Based on our previous assumptions thaw we can model the data as they come from an approximately Gaussian distribution, we are going to use Welch's t-test. The main difference between Welch's t-test and the unpaired Student t-test is that for the former we don't need to assume that the population standard deviation, and therefore the population variance, of the two groups, is the same, making the Welch's t-test more robust about against other tests. Consequently, Welch's t-statistic under the null hypothesis is approximately t-distributed, meaning we can compute approximate p-values and not exact ones.
+
+<br />
+
+**5. Compute the numerical value of the test statistic**
+
+<br />
+
+Welch's T statistic: $T_w = \frac{\bar{X_0} - \bar{X_1}} {\sqrt{\frac{1}{n_0} + \frac{1}{n_1}}}$, 
+
+where $\bar{X_j}$ is the sample mean: $\bar{X_j} = \frac{1}{n_j} \sum_{i = 1}^{n_j}X_i^j$, and
+
+$S_j^2$ is the sample variance of group $j$ (with $j =$ 0 for negatives or 1 for positives): $S_j^2 = \frac{1}{n_j-1} \sum_{i = 1}^{n_j}(X_i^j - \bar{X_j})$
+
+The [degrees of freedom](https://en.wikipedia.org/wiki/Degrees_of_freedom_(statistics)) are given by the following formula: $k = \frac{(\frac{S_0^2} {n_0} + \frac{S_1^2} {n_1}) ^ 2}{\frac{(\frac{S_0^2}{n_0})^2}{n_0 - 1} + \frac{(\frac{S_1^2} {n_1}) ^ 2}{n_1 - 1}}$
+
+We expect $|T|$ to be relatively large if $μ_0 \not= μ_1$ and relatively small if $μ_0 = μ_1$. T-statistic is t-distributed which is similar to the Gaussian distribution but allows for fatter tails which become progressively thinner as the $k$ degrees of freedom increases. Therefore, we can say that t-statistic has a known distribution under the null hypothesis and this allows us to the compute p-value.
+
+Using the programming language R, we compute the following:
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  m0 <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataset
+    filter(DiagnosisOutcome == "Negative") %>% # where diagnosed negative
+        pull(BloodPressure) %>% # take the BloodPressure column as vector
+    mean() # compute mean of negatives group
+  m1 <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataset
+    filter(DiagnosisOutcome == "Positive") %>% # where diagnosed positive
+        pull(BloodPressure) %>% # take the BloodPressure column as vector
+    mean() # compute mean of positives group
+  
+  sd0 <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataset
+    filter(DiagnosisOutcome == "Negative") %>% # where diagnosed negative
+    pull(BloodPressure) %>% # take the BloodPressure column as vector
+    sd() # compute standard deviation of negatives group
+  sd1 <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataset
+    filter(DiagnosisOutcome == "Positive") %>% # where diagnosed positive
+    pull(BloodPressure) %>% # take the BloodPressure column as vector
+    sd() # compute standard deviation of positives group
+  
+  
+  n0 <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataset
+    filter(DiagnosisOutcome == "Negative") %>% # where diagnosed negative
+    nrow() # compute number of negatives
+  n1 <- diagnosisoutcomeBloodpressureDataframe %>% # from our dataset
+    filter(DiagnosisOutcome == "Positive") %>% # where diagnosed positive
+    nrow() # compute number of positives
+  
+  
+  k <- round(((((sd0 ^ 2) / n0) + ((sd1 ^ 2) / n1)) ^ 2) / ((((sd0 ^ 2) / n0) ^ 2)/(n0 - 1) + (((sd1 ^ 2) / n1) ^ 2) / (n1 - 1))) # compute the degrees of freedom and round to the closest integer
+  
+    
+  tStat <- (m0 - m1) / sqrt(((sd0^2)/n0) + ((sd1^2)/n1)) # compute t statistic
+
+```
+
+<br />
+<br />
+
+$μ_0 =$ `r m0`,
+
+$μ_1 =$ `r m1`,
+
+$σ_0 =$ `r sd0`,
+
+$σ_1 =$ `r sd1`,
+
+$n_0 =$ `r n0`,
+
+$n_1 =$ `r n1`, and
+
+$k =$ `r k`
+
+Using the values we computed and the formula above, we are now able to compute the t-statistic as $T_w = \frac{\bar{X_0} - \bar{X_1}} {\sqrt{\frac{1}{n_0} + \frac{1}{n_1}}} =$ `r tStat`  
+
+This value indicates that the negatives on our sample have unquestionably smaller average diastolic blood pressure than the positives. To determine if this statistic is significant we must compute the p-value.
+
+<br />
+
+**6. Compute the p-value based upon the test statistic**
+
+<br />
+
+As already mentioned in Task 1, the p-value is the probability under the null hypothesis that the test statistic takes a value as extreme or more extreme than the observed value.
+
+Also, we already mentioned that under the null hypothesis the test statistic is t-distributed with $k = \frac{(\frac{S_0^2} {n_0} + \frac{S_1^2} {n_1}) ^ 2}{\frac{(\frac{S_0^2}{n_0})^2}{n_0 - 1} + \frac{(\frac{S_1^2} {n_1}) ^ 2}{n_1 - 1}} =$ `r k` degrees of freedom. So, we can use the cumulative distribution function $F_{(n_0 + n_1 -2)}(t) = \int_{-\infty}^t f_{(n_0 + n_1 -2)}(x)dx$ to compute the p-value.
+
+Suppose that the numerical value of the test statistic based on the data is $τ$. Thus, the formula to compute the p-value is the following:
+$p = \mathbb{P} (|T| \ge |τ||H_0) = 2 \cdot \mathbb{P} (T \ge |τ||H_0) =$
+$= 2 \cdot \{1- \mathbb{P} (T < |τ||H_0)\} = 2 \cdot (1 - F_{(n_0 + n_1 - 2)}(|τ|)$
+
+We already know that the T statistic equals `r tStat` and we have already computed the degrees of freedom $k =$ `r k`.
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  pValue <- 2 * (1 - pt(abs(tStat), df = k)) # compute the p-value
+  
+```
+
+<br />
+<br />
+
+Hence, using these values and the formula above, we can now compute the p-value as follows: $p = 2 \cdot (1 - F_{(n_0 + n_1 - 2)}(|τ|) =$ `r pValue`.
+
+<br />
+
+**7. Draw conclusions based upon the relationship between the computed p-value and the chosen significance level**
+
+<br />
+
+We can clearly see that the p-value is very small and of course smaller than the significance level we set before ($p =$ `r round(pValue, digits = 7) # return the rounded p-value to 7 digits` $< α = 0.05$), therefore we have a good reason to **reject** the null hypothesis $H_0: μ_0 = μ_1$ and **accept** the alternative hypothesis $H_1: μ_0 \not= μ_1$. Based on the sign of our t-statistic ($-$) we can conclude that $μ_0 < μ_1$, meaning that the average diastolic blood pressure of Pima Indian females over 21 that tested negative for diabetes is smaller by almost `r abs(round(tStat, digits = 2)) # return the absolute number of the rounded T statistic to 2 decimals` mmHg than the average diastolic blood pressure of the Pima Indian females over 21 that tested positive for diabetes.
+
+Last but not least, we are going to compute the effect size. Effect size is a measure for quantifying the magnitude of the observed phenomenon. We will use the Cohen's d effect size for our analysis, hence the effect size equals to $d = \frac{\bar{X_0} - \bar{X_1}}{S_{0, 1}}$, where $(S_{0, 1})^2 = \frac{(n_0 - 1)S_0^2 + (n_1 - 1)S_1^2}{n_0 + n_1 - 2}$
+
+<br />
+<br />
+
+```{r, message = FALSE, warning = FALSE}
+  
+  # compute the combined variance of the groups
+  sdCombined <- sqrt((((n0 - 1) * sd0 ^ 2) + ((n1 - 1) * sd1 ^ 2)) / (n0 + n1 - 2))
+
+  # compute the Cohen's d for the unpaired t-test
+  d <- (m0 - m1) / sdCombined # compute the effect size
+  
+```
+
+<br />
+<br />
+
+Therefore, we have an effect size equal to $d = \frac{\bar{X_0} - \bar{X_1}}{S_{0, 1}} =$ `r d`, which suggests that we have a small to medium effect size, implying that the difference between the two means is somewhat substantial.
+
+<br />
+
+# Task 5.
+
+<br />
+
+To begin with, we will refer to the validation of our measurement. Considering that the reality we really intend to measure is the diastolic blood pressure itself, we can easily conclude that we have a **valid measurement**. 
+
+Next in order, we will point out the nonexistence of **measurement error** in our data, which is the difference between a measured value and its true value. Although we don't know what means were used for the diastolic blood pressure to be measured, we strongly believe that the best electronic devices assisted to this purpose due to the origin of this dataset, which is -as we already specified- the [National Institute of Diabetes and Digestive and Kidney Diseases](https://en.wikipedia.org/wiki/National_Institute_of_Diabetes_and_Digestive_and_Kidney_Diseases) based in the USA. Moreover, measuring the diastolic blood pressure is not a task that needs state-of-the-art technology. As a consequence, we suppose that there is no miscalibration of measurement. Furthermore, there can be no inaccurate responses, for the reason that the diastolic blood pressure is dependent on each individual's organism and cannot be distorted by the patient himself. Even though there is always a possibility that a human error can take place, we will stick to our assumption that there is no such error in the dataset considering the credibility of this institute. 
+
+Following, we indicate the faulty representation of the population of interest by the data encompassed in the analysis, called **selection bias** or **selection effect**. Our ultimate goal through our previous research analysis was to determine whether there is a difference in the diastolic blood pressure between people diagnosed with diabetes and people that are not. Selection bias consists of a lot of different categories. We are going to investigate some of them. Firstly, we will analyze the sample bias. *Sample bias*  occurs when the sample isn't randomly selected, meaning that it is more likely to consist of more members with some specific characteristics (e.g. age, gender, preference in food, preference in type of music) than others without these. On our occasion, the sample used was composed of only females, over the age of 21, coming from the Pima Indian tribe. This implies that we cannot be sure if these results can represent males over the age of 21 not even if they come from the Pima tribe as well. We can't even be sure if this analysis can be generic to the female population over 21, as our sample comes from people of a specific tribe. This means that these females may include different food in their diet, different everyday levels of exercise, in general, different habits that are directly correlated with a healthy life, than the females that are not coming from this tribe. Therefore, we are more confident that our previous conclusions are referred to the females over 21 coming from the Pima Indian tribe rather than the whole population. Next, *self-selection bias* (or volunteer bias) results when the participants that take part in the study might not be suitable for this occasion. They could have a personal interest in the topic or a personal strong opinion, thus they distort the data of the research. In many cases, the self-selection bias can lead to sample bias. In our case, there is no self-selection bias, as our sample is generated by real patients and not volunteers. Additionally, *attrition bias* is caused when participants leave the study before it finishes, which leads to a non representative sample for the study. For example, in a test of a specific drug, some participants might leave because of the absense of a substantial result, so the remaining participants might be the only ones that the drug had a substantial effect on. Our study doesn't have attricion bias, for the reason that our patients didn't use any therapy, but they only had some of their vital points measured and the outcome of a test. A further common example of selection bias is *post hoc selection*. This happens when specific data are used in analysis rather than the whole sample. For example, in a test of a dieting program, a researcher might only use data of people that have noted a downward bias in terms of weight, which is not a representative sample of the effect of the dieting program. We used every single patient in our dataset for our analysis, showing that we don't have a post hoc selection in our research. Another one is the *time interval* which takes place when a study is being terminated early when the researcher has desired results. For example, in a test of a new drug, the research might be terminated when it reaches a desired percentage of effect. However, this drug might have aftereffects or change in its effectiveness after a period of time. As we already quoted, our data use only measurements of specific vital points and the outcome of a test, therefore we don't have time interval in our analysis.
+
+To sum up, we are convinced that our research analysis has a valid measurement and there is no measurement error. Although, in terms of selection bias, we observe the existence of sample bias. Thence, considering our results in Task 4 as well, we conclude to the following: there is a meaningful difference in the diastolic blood pressure between people that are positive to diabetes and people that are not, however as a result of our sample bias we are confident that this applies to women over 21 coming from the Pima Indian tribe, but cannot be generalized for the whole population.
+
+Our conclusions would have differed if we had different results for T-statistic, p-value, and cohen's d. Before analyzing the difference in these variables, we must clarify that if we didn't have data that follows the Gaussian distribution, we would not be able to apply the Welch's t-test for our research analysis. So having in mind that we were able to apply this test, we advance to the investigation of the variables above. Firstly, if we had a positive sign ($+$) in the T-statistic that would have meant that negatives have a bigger diastolic blood pressure than positives. If the value was close to zero we would have no difference at all. Also, if the p-value, which is directly correlated with T-statistic, was bigger than our significance level ($α = 0.05$), we would not be able to reject the null hypothesis $H_0$, thus we could not say that there is a difference between the mean diastolic blood pressure of the two groups. Last but not least, if cohen's d was smaller than $0.2$, we could not support the argument that the difference between the two means is consequential, even if it would be statistically important.
+
+In order for our conclusion to be generalized for the whole population, we need data that are selection bias-free. This means that we need a different sample of the people that are getting their vital points measured. Ideally, we would need people of all ages, of all nationalities, of all genders. People that would represent a sample of the whole population of the world, but this would be extremely expensive and time-consuming. A typical solution to selection bias can happen the randomization. *Randomization* is when the sample is randomly generated by the population of our interest with a uniform weight. One way that we could have a randomized sample, is by generating a sample from a public hospital that is based in a multinational area. For example, a hospital in a small town of Italy would probably have mainly white people, with a Mediterranean diet in their everyday life, while a hospital in Nigeria would probably have mostly black people, with ethnic food mainly in their everyday life. Both of the previous examples would still have sample bias and therefore they cannot represent the whole population. Another way of eliminating the selection bias could be a worldwide common database. Hospitals from all over the world could upload data to a central server, and then perform more generalized research.
+
+Researches have shown that there is no standard value of diastolic blood pressure, but a range that can indicate a healthy organism. A [publication](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5220163/) from [NCD-RisC](https://ncdrisc.org) has shown that the mean diastolic blood pressure can variate by gender, by origin, even by income. It also signified that the mean diastolic blood pressure has changed over the years in these populations. This suggests that diastolic blood pressure itself cannot be the only causal effect of diabetes. A healthy lifestyle could be a confounding variable in this equation. The *Confounding variable* is specified as a third causal factor Z which affects directly or indirectly both our independent variable X, diastolic blood pressure in our analysis, and dependent variable Y, the existence of diabetes disease. A low-calorie diet, weight-loss, and exercise are factors that can help reduce the blood pressure to normal levels and therefore might reduce the risk of diabetes. 
+
+A way to test our assumption of the causal effect of a healthy lifestyle on the existence of diabetes disease, is by experimental designing, although as we mention later it is very difficult to design and run one. [Research](https://www.diabetes.org.uk/resources-s3/2017-11/diabetes_in_the_uk_2010.pdf) has shown that the majority of people that are diagnosed with diabetes are over the age of 45. So, in order to test we need to create a pre-test/post-test group design. In a *pre-test/post-test group design* we randomly create two groups of people, then we measure the variable we are interested in, we apply our experiment to one of these two groups, and finally, we measure again our variable to identify the effect of our experiment. In our experimental design, our sample must be consisted of random people under the age of 45 with a negative test for diabetes, as we need to see the effect of a healthy lifestyle as a cause of the existence of diabetes and not as a cure to diabetes. Then, we randomly separate our sample it two groups and measure their diastolic blood pressure. After that, we suggest the people of group 1 follow a healthy lifestyle and the people of group 2 to follow their previous normal way of life. After some years, we gather the groups and measure their diastolic blood pressure and test them for diabetes. Lastly, we can run an analysis of the two samples and figure out if there is a difference in the diabetes outcome of the two groups which was caused by a difference in the diastolic blood pressure.
+
+<br />
+
+Group 0   Measure diastolic blood pressure $\Longrightarrow$ Normal lifestyle $\Longrightarrow$ Measure diastolic blood pressure and test for diabetes
+
+Group 1   Measure diastolic blood pressure $\Longrightarrow$ Healthy lifestyle $\Longrightarrow$ Measure diastolic blood pressure and test for diabetes
+
+<br />
+
+This experimental design comes with a lot of problems as well. First of all, we have the danger of attrition bias. This research is going to take years and a lot of people might leave during this time. Moreover, due to the length of this experiment, you can't have people in a supervised environment. Therefore, if people in group 1 do not follow a healthy lifestyle, we cannot know about that. Respectively, the same can happen if people in group 0 start following a healthy lifestyle. Additionally, the cost of this experiment would be enormous. We probably have to pay the people to get involved in an experiment that will take years. A healthy lifestyle comes with a cost as well, so maybe these people are going to need extra money to stick live like that. If we needed to add some supervision in our experiment, we'd have to hire people that go to the peoples' houses every week or month to check if they continue to follow the lifestyle. Furthermore, a healthy lifestyle might also have a causal effect directly on the outcome of diabetes. Hence, it would be difficult to say if the difference in the diastolic blood pressure or the healthy lifestyle is the cause of the existence of diabetes. Last but not least, the most important of all is that diabetes is a disease that is hereditary. This means that most of the time a person might get diabetes only because their parents or grandparents had it, even though they might have lived a healthy lifestyle. For the reasons mentioned above, we strongly believe that an experiment like that would be a waste of precious time and money.
+
+<br />
+
+BIBLIOGRAPHY
+
+https://www.statisticsteacher.org/2017/09/15/what-is-power/
+
+https://apcentral.collegeboard.org/courses/ap-statistics/classroom-resources/power-in-tests-of-significance
+
+https://stats.stackexchange.com/questions/101274/how-to-interpret-a-qq-plot
+
+https://stats.stackexchange.com/questions/304027/visual-fitting-of-tails-of-density-plots-on-log-scale-r
+
+https://en.wikiversity.org/wiki/Cohen%27s_d
+
+https://www.simplypsychology.org/effect-size.html
+
+https://www.ncbi.nlm.nih.gov/books/NBK279251/
+
+https://en.wikipedia.org/wiki/Test_statistic
+
+https://en.wikipedia.org/wiki/P-value
+
+https://en.wikipedia.org/wiki/Selection_bias
+
+https://en.wikipedia.org/wiki/Nigerian_cuisine
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5220163/
+
+https://www.webmd.com/diabetes/can-you-reverse-type-2-diabetes
+
+https://www.diabetes.org.uk/resources-s3/2017-11/diabetes_in_the_uk_2010.pdf
+
+https://www.bhf.org.uk/informationsupport/heart-matters-magazine/news/behind-the-headlines/sugar-and-blood-pressure
+
+
+
+
+
